@@ -41,12 +41,17 @@ class Red:
         
         out = [(None, X)]
         for l, capa in enumerate(self.capas):
-            #print(out[-1][1])
-            z = out[-1][1] @ self.capas[l].w + self.capas[l].b
-            #print(out[-1][1])
+            #z = out[-1][1] @ self.capas[l].w + self.capas[l].b
+            z = []
+            for i in range(len(self.capas[l].w[0])):
+                #print(out[-1][1][i], '-', self.capas[l].w[i])
+                z.append(np.sum(np.array(out[-1][1][i] - self.capas[l].w[i]) ** 2) ** 0.5)
+            #z = np.array(z) ** 0.5
+            #print(z)
             a = self.capas[l].activation(z)
             out.append((z, a)) 
         return out[-1]
+
     def evaluate(self, X, Ye):
         for i in range(len(Ye)):
             return np.mean((np.array(Ye[i]) - np.array(self.forward_pass(X.iloc[i])[1])) ** 2)
@@ -172,10 +177,6 @@ class Optimizer:
 
 
         for i in range(steps):
-            #for j in range(num_batches):
-            #    x_ = x[j*batch_size:(j+1)*batch_size,:]
-            #    y_ = y[j*batch_size:(j+1)*batch_size]
-#
             for p in self.particles:
                 local_score = p.step(x, y, self.global_best_weights)
 
@@ -205,8 +206,8 @@ def main():
     shape = [p, 40, 1]
     N = 60 # Numero de particulas
     acc = 0.4 # Aceleración de las partículas
-    lr = 1.5 # global y local rate
-    gr = 1.7
+    lr = 0.5 # global y local rate
+    gr = 1
 
 
     params = { 'shape': shape , 'activation' : custom_activation }
@@ -223,6 +224,7 @@ def main():
     pso.fit(x_train, y_train, steps=STEPS)
     model_p = pso.get_best_model()
     print(pso.global_best_score)
+
     print(model_p.evaluate(x_train, y_train))
 
     
