@@ -176,7 +176,7 @@ class Optimizer:
         self.C = penalty_inv
 
         params_pso = {'acc': acceleration, 'local_acc': local_rate, 'global_acc': global_rate}
-
+        m = None
         for i in range(n-1):
             m = Red(self.structure['shape'], self.structure['activation'])
             self.particles[i] = Particle(m, params_pso, self.C)
@@ -225,7 +225,7 @@ class Optimizer:
 def main():
     p = 42 # numero de valores de entrada
     shape = [p, 40]
-    N = 60 # Numero de particulas
+    N = 100 # Numero de particulas
     acc = 0.4 # Aceleración de las partículas
     lr = 0.5 # global y local rate
     gr = 1
