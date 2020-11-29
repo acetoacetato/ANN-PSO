@@ -37,10 +37,10 @@ class Red:
         for i, dim in enumerate(shape[:-1]):
             layer = Capa(num_neuronas=shape[i+1], cant_conn = shape[i], activation=activation)
             self.capas.append(layer)
-    def forward_pass(self, X):
+    def forward_pass(self, X, Ye, C):
         
         out = [(None, X)]
-        for l, capa in enumerate(self.capas):
+        for l in range(len(self.capas)):
             #z = out[-1][1] @ self.capas[l].w + self.capas[l].b
             z = []
             for i in range(len(self.capas[l].w[0])):
@@ -49,12 +49,30 @@ class Red:
             #z = np.array(z) ** 0.5
             #print(z)
             a = self.capas[l].activation(z)
+
+
+            
             out.append((z, a)) 
+
+        ## Se calculan los pesos de salida
+        H = self.capas[0].w[0]
+        yh = Ye * H
+        hh = (H * np.transpose(H) + np.identity(len(H)))/C
+        inv = np.linalg.pinv(hh)
+        w2 = yh * inv
+        z = []
+        for i in range(len(w2[0])):
+            z.append(np.sum(np.array(out[-1][1][i] - w2[i]) ** 2) ** 0.5)
+        #z = np.array(z) ** 0.5
+        #print(z)
+        a = custom_activation(z)
+        out.append((z, a))
+
         return out[-1]
 
-    def evaluate(self, X, Ye):
+    def evaluate(self, X, Ye, C):
         for i in range(len(Ye)):
-            return np.mean((np.array(Ye[i]) - np.array(self.forward_pass(X.iloc[i])[1])) ** 2)
+            return np.mean((np.array(Ye[i]) - np.array(self.forward_pass(X.iloc[i], Ye[i], C))[1]) ** 2)
 
     def get_weights(self):
         return [ l.w for l in self.capas ]
@@ -78,9 +96,10 @@ def custom_activation(x):
 BIG_SCORE = 1.e6
 
 class Particle:
-    def __init__(self, model, params):
+    def __init__(self, model, params, C):
         self.model = model
         self.params = params
+        self.C = C
         self.init_weights = model.get_weights()
         self.velocities = [None] * len(self.init_weights)
         self.length = len(self.init_weights)
@@ -90,8 +109,8 @@ class Particle:
         self.best_weights = None
         self.best_score = BIG_SCORE
 
-    def get_score(self, x, y, update=True):
-        local_score = self.model.evaluate(x, y)
+    def get_score(self, x, y, C, update=True):
+        local_score = self.model.evaluate(x, y, C)
         if local_score < self.best_score and update:
             self.best_score = local_score
             self.best_weights = self.model.get_weights()
@@ -132,7 +151,7 @@ class Particle:
             depth = self.length
         self._update_velocities(global_best_weights, depth)
         self._update_weights(depth)
-        return self.get_score(x, y)
+        return self.get_score(x, y, self.C)
 
     def get_best_weights(self):
         return self.best_weights
@@ -147,27 +166,29 @@ class Optimizer:
                  n=10,
                  acceleration=0.1,
                  local_rate=1.0,
-                 global_rate=1.0):
+                 global_rate=1.0,
+                 penalty_inv = 1):
 
         self.n_particles = n
         self.structure = params_red
         self.particles = [None] * n
         self.length = len(model.get_weights())
+        self.C = penalty_inv
 
         params_pso = {'acc': acceleration, 'local_acc': local_rate, 'global_acc': global_rate}
 
         for i in range(n-1):
             m = Red(self.structure['shape'], self.structure['activation'])
-            self.particles[i] = Particle(m, params_pso)
+            self.particles[i] = Particle(m, params_pso, self.C)
 
-        self.particles[n-1] = Particle(m, params_pso)
+        self.particles[n-1] = Particle(m, params_pso, self.C)
 
         self.global_best_weights = None
         self.global_best_score = BIG_SCORE
     
     def fit(self, x, y, steps=0):
         for i, p in enumerate(self.particles):
-            local_score = p.get_score(x, y)
+            local_score = p.get_score(x, y, self.C)
 
             if local_score < self.global_best_score:
                 self.global_best_score = local_score
@@ -203,17 +224,17 @@ class Optimizer:
 
 def main():
     p = 42 # numero de valores de entrada
-    shape = [p, 40, 1]
+    shape = [p, 40]
     N = 60 # Numero de particulas
     acc = 0.4 # Aceleración de las partículas
     lr = 0.5 # global y local rate
     gr = 1
-
+    C = 1
 
     params = { 'shape': shape , 'activation' : custom_activation }
     red = Red(shape, custom_activation)
 
-    pso = Optimizer(red, params, n=N, acceleration=acc, local_rate=lr, global_rate=gr)
+    pso = Optimizer(red, params, n=N, acceleration=acc, local_rate=lr, global_rate=gr, penalty_inv=C)
     
     # Leemos el csv
     df = pd.read_csv("train.csv", header=None)
@@ -225,7 +246,7 @@ def main():
     model_p = pso.get_best_model()
     print(pso.global_best_score)
 
-    print(model_p.evaluate(x_train, y_train))
+    print(model_p.evaluate(x_train, y_train, C))
 
     
 
