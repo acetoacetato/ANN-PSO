@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import random
 
+from sklearn.metrics import accuracy_score
 import pandas as pd
 import numpy as np
 
@@ -15,7 +16,6 @@ import numpy as np
 """
 Clase que representa una capa de la red
 Contiene la matriz de pesos para cada conexion y el vector de bias.
-
 """
 class Capa:
     def __init__(self, num_neuronas : int, cant_conn : int, activation = None, entrada = 3, ocultas = 1):
@@ -226,6 +226,24 @@ def main():
     print(pso.global_best_score)
 
     print(model_p.evaluate(x_train, y_train))
+
+    # *** Intentos raros de Marcelo a ver si sale bien.
+    # habrá que cambiar la ruta porque este es para mi caso***
+    csvTest = pd.read_csv(r"C:\Users\marce\Desktop\ANN-PSO-master\test.csv")
+    y_test = df[42]
+    x_test = df.drop(42, axis=1)
+    #csvMatrix = csvTest.to_numpy()
+    
+
+
+    fila = 0
+    v = []
+
+    for i, fila in x_test.iterrows():
+        v.append(1 if model_p.forward_pass(fila.tolist())[1][0] >= 0 else -1) # TODO: agregar también y_test[fila] 
+        
+    print(accuracy_score(y_test.tolist(), v))
+        
 
     
 
