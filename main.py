@@ -38,14 +38,18 @@ class Red:
             layer = Capa(num_neuronas=shape[i+1], cant_conn = shape[i], activation=activation)
             self.capas.append(layer)
     def forward_pass(self, X):
+        
         out = [(None, X)]
         for l, capa in enumerate(self.capas):
+            #print(out[-1][1])
             z = out[-1][1] @ self.capas[l].w + self.capas[l].b
+            #print(out[-1][1])
             a = self.capas[l].activation(z)
             out.append((z, a)) 
         return out[-1]
     def evaluate(self, X, Ye):
-        return np.mean((np.array(Ye) - np.array(self.forward_pass(X)[1])) ** 2)
+        for i in range(len(Ye)):
+            return np.mean((np.array(Ye[i]) - np.array(self.forward_pass(X.iloc[i])[1])) ** 2)
 
     def get_weights(self):
         return [ l.w for l in self.capas ]
@@ -99,6 +103,7 @@ class Particle:
                 new_velocities[i] = self.velocities[i]
                 continue
             new_v = self.params['acc'] * self.velocities[i]
+            #print(self.best_weights[i])
             new_v = new_v + self.params['local_acc'] * local_rand * (self.best_weights[i] - layer)
             new_v = new_v + self.params['global_acc'] * global_rand * (global_best_weights[i] - layer)
             new_velocities[i] = new_v
@@ -155,10 +160,7 @@ class Optimizer:
         self.global_best_weights = None
         self.global_best_score = BIG_SCORE
     
-    def fit(self, x, y, steps=0, batch_size=32):
-        num_batches = len(x) // batch_size
-
-
+    def fit(self, x, y, steps=0):
         for i, p in enumerate(self.particles):
             local_score = p.get_score(x, y)
 
@@ -180,11 +182,10 @@ class Optimizer:
                 if local_score < self.global_best_score:
                     self.global_best_score = local_score
                     self.global_best_weights = p.get_best_weights()
+                    self.best_model = p
 
     def get_best_model(self):
-        best_model = Red(self.structure['shape'], self.structure['activation'])
-        best_model.set_weights(self.global_best_weights)
-        return best_model
+        return self.best_model.model
 
 
 
@@ -200,24 +201,28 @@ class Optimizer:
 ######################################################################################
 
 def main():
-    p = 2 # numero de valores de entrada
-    shape = [p, 3, 1]
-    N = 100 # Numero de particulas
-    acc = 0.1 # Aceleración de las partículas
-    lr = 1 # global y local rate
-    gr = 1
+    p = 42 # numero de valores de entrada
+    shape = [p, 40, 1]
+    N = 60 # Numero de particulas
+    acc = 0.4 # Aceleración de las partículas
+    lr = 1.5 # global y local rate
+    gr = 1.7
 
 
     params = { 'shape': shape , 'activation' : custom_activation }
     red = Red(shape, custom_activation)
 
     pso = Optimizer(red, params, n=N, acceleration=acc, local_rate=lr, global_rate=gr)
-    x_train = [[0, 0], [0, 1], [1, 0], [1, 1]]
-    y_train = [[0], [1], [1], [0]]
-    BATCH_SIZE = 1
+    
+    # Leemos el csv
+    df = pd.read_csv("train.csv", header=None)
+
+    y_train = df[42]
+    x_train = df.drop(42, axis=1)
     STEPS = 1000
-    pso.fit(x_train, y_train, steps=STEPS, batch_size=BATCH_SIZE)
+    pso.fit(x_train, y_train, steps=STEPS)
     model_p = pso.get_best_model()
+    print(pso.global_best_score)
     print(model_p.evaluate(x_train, y_train))
 
     
